@@ -1,0 +1,45 @@
+name: CI
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build database
+        run: npm run build:db
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Contract tests
+        run: npm run test:contract
+
+      - name: Database integrity
+        run: |
+          sqlite3 data/database.db "PRAGMA integrity_check;" | grep -q "ok"
+          sqlite3 data/database.db "PRAGMA journal_mode;" | grep -q "delete"
+      - name: Audit dependencies
+        run: npm audit --audit-level=high || true
