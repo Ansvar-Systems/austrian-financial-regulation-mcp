@@ -230,14 +230,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             "Bestimmung nicht gefunden: " + parsed.sourcebook + " " + parsed.reference,
           );
         }
+        const prov = provision as unknown as Record<string, unknown>;
         return textContent({
           ...(typeof provision === 'object' ? provision : { data: provision }),
           _citation: buildCitation(
-            provision.reference || parsed.reference,
-            provision.title || provision.name || parsed.reference,
+            (prov.reference as string) || parsed.reference,
+            (prov.title as string) || (prov.name as string) || parsed.reference,
             'at_fin_get_regulation',
             { sourcebook: parsed.sourcebook, reference: parsed.reference },
-            provision.url || provision.source_url || null,
+            (prov.url as string) || (prov.source_url as string) || null,
           ),
         });
       }
