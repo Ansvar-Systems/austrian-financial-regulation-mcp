@@ -31,12 +31,22 @@ RUN addgroup -g 1001 -S nodejs \
 COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
 COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
 COPY --chown=nodejs:nodejs package.json ./
-# (no DB embedded — premium-mounted or stub MCP)
+
+# Bake the pre-built database into the image so /app/data/fma.db resolves
+# at runtime without a bind mount. The explicit `data/<name>.db` reference
+# is required — `.github/workflows/publish-ghcr.yml` greps the Dockerfile
+# with `COPY\s+\K(data/\S+\.db)` to decide whether to download the
+# gitignored DB from a GitHub Release. `data/database.db` is provisioned
+# by the workflow's "Provision database" step — it `gh release download`s
+# `database.db.gz` and gunzips to that path. We then COPY it into the
+# image at /app/data/fma.db (FMA_DB_PATH default).
+COPY --chown=nodejs:nodejs data/database.db data/fma.db
 
 USER nodejs
 
 ENV NODE_ENV=production \
-    PORT=3000
+    PORT=3000 \
+    FMA_DB_PATH=/app/data/fma.db
 
 EXPOSE 3000
 
