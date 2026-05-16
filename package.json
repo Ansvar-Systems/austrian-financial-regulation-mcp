@@ -4,9 +4,9 @@
   "mcpName": "eu.ansvar/austrian-financial-regulation-mcp",
   "description": "FMA (\u00d6sterreichische Finanzmarktaufsicht) MCP server \u2014 Rundschreiben, Mindeststandards, Leitf\u00e4den und Durchsetzungsma\u00dfnahmen",
   "type": "module",
-  "main": "dist/src/index.js",
+  "main": "dist/index.js",
   "bin": {
-    "austrian-financial-regulation-mcp": "dist/src/index.js"
+    "austrian-financial-regulation-mcp": "dist/index.js"
   },
   "files": [
     "dist",
@@ -40,9 +40,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsx src/http-server.ts",
-    "start": "node dist/src/http-server.js",
+    "start": "node dist/http-server.js",
     "seed": "npx tsx scripts/seed-sample.ts",
-    "ingest": "npx tsx scripts/ingest-fma.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "tsc --noEmit",
     "test:contract": "echo \"No contract tests yet\" && exit 0"

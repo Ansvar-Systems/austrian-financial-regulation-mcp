@@ -33,6 +33,11 @@ COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
 COPY --chown=nodejs:nodejs package.json ./
 # (no DB embedded — premium-mounted or stub MCP)
 
+# Ensure /app/data exists and is writable by the runtime user.
+# SQLite needs to write -wal/-shm sidecars in the DB directory; even
+# a read-only DB requires this unless journal_mode=delete is forced.
+RUN mkdir -p /app/data && chown -R nodejs:nodejs /app/data
+
 USER nodejs
 
 ENV NODE_ENV=production \
@@ -43,4 +48,4 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
   CMD node -e "fetch('http://localhost:3000/health').then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))"
 
-CMD ["node", "dist/src/http-server.js"]
+CMD ["node", "dist/http-server.js"]
