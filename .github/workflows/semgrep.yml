@@ -1,9 +1,17 @@
 name: Semgrep
 on:
-  push:
-    branches: [main]
   pull_request:
-    branches: [main]
+    branches: [main, dev]
+    paths:
+      - 'src/**'
+      - 'scripts/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig.json'
+      - '.github/workflows/semgrep.yml'
+  schedule:
+    - cron: '0 4 * * 1'  # Weekly, Monday 04:00 UTC
+  workflow_dispatch:
 
 jobs:
   scan:

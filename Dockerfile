@@ -31,26 +31,21 @@ RUN addgroup -g 1001 -S nodejs \
 COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
 COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
 COPY --chown=nodejs:nodejs package.json ./
+# (no DB embedded — premium-mounted or stub MCP)
 
-# Bake the pre-built database into the image so /app/data/fma.db resolves
-# at runtime without a bind mount. The explicit `data/<name>.db` reference
-# is required — `.github/workflows/publish-ghcr.yml` greps the Dockerfile
-# with `COPY\s+\K(data/\S+\.db)` to decide whether to download the
-# gitignored DB from a GitHub Release. `data/database.db` is provisioned
-# by the workflow's "Provision database" step — it `gh release download`s
-# `database.db.gz` and gunzips to that path. We then COPY it into the
-# image at /app/data/fma.db (FMA_DB_PATH default).
-COPY --chown=nodejs:nodejs data/database.db data/fma.db
+# Ensure /app/data exists and is writable by the runtime user.
+# SQLite needs to write -wal/-shm sidecars in the DB directory; even
+# a read-only DB requires this unless journal_mode=delete is forced.
+RUN mkdir -p /app/data && chown -R nodejs:nodejs /app/data
 
 USER nodejs
 
 ENV NODE_ENV=production \
-    PORT=3000 \
-    FMA_DB_PATH=/app/data/fma.db
+    PORT=3000
 
 EXPOSE 3000
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
   CMD node -e "fetch('http://localhost:3000/health').then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))"
 
-CMD ["node", "dist/src/http-server.js"]
+CMD ["node", "dist/http-server.js"]
