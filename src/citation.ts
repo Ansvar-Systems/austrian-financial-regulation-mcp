@@ -21,6 +21,40 @@ export interface CitationMetadata {
     tool: string;
     args: Record<string, string>;
   };
+  publisher?: string;
+  license?: string;
+  retrieved_at?: string;
+}
+
+/**
+ * Source attribution constant. Currently STUB: this MCP serves an 84KB stub DB
+ * from scripts/seed-sample.ts. The real FMA upstream is Cloudflare-gated and the
+ * planned OeNB upstream has an explicit copyright reservation — both tracked in
+ * sources.yml + the at-risk register entry. publisher=ansvar-systems +
+ * license=Ansvar-Synthesis honestly reflects current served content; declaring
+ * "from FMA" on Ansvar-curated samples would itself be a compliance lie.
+ */
+export const SOURCE_ATTRIBUTION = {
+  publisher: "ansvar-systems",
+  license: "Ansvar-Synthesis",
+  base_url: "https://github.com/Ansvar-Systems/austrian-financial-regulation-mcp",
+} as const;
+
+/**
+ * Build a minimal source-attribution stub for items in a search result list.
+ */
+export function buildItemAttribution(sourceUrl?: string | null): {
+  publisher: string;
+  license: string;
+  source_url: string;
+  retrieved_at: string;
+} {
+  return {
+    publisher: SOURCE_ATTRIBUTION.publisher,
+    license: SOURCE_ATTRIBUTION.license,
+    source_url: sourceUrl || SOURCE_ATTRIBUTION.base_url,
+    retrieved_at: new Date().toISOString(),
+  };
 }
 
 /**
@@ -47,11 +81,14 @@ export function buildCitation(
     canonical_ref: canonicalRef,
     display_text: displayText,
     ...(aliases && aliases.length > 0 && { aliases }),
-    ...(sourceUrl && { source_url: sourceUrl }),
+    source_url: sourceUrl || SOURCE_ATTRIBUTION.base_url,
     lookup: {
       tool: toolName,
       args: toolArgs,
     },
+    publisher: SOURCE_ATTRIBUTION.publisher,
+    license: SOURCE_ATTRIBUTION.license,
+    retrieved_at: new Date().toISOString(),
   };
 }
 

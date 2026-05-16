@@ -1,0 +1,97 @@
+# sources.yml — data provenance contract for austrian-financial-regulation-mcp.
+#
+# Status: STUB as of 2026-05-16. The MCP currently serves an 84KB stub DB built
+# from scripts/seed-sample.ts (representative sample provisions, not the real
+# Rundschreiben/Mindeststandards/Leitfaeden corpus). Per-item _citation declares
+# publisher=ansvar-systems + license=Ansvar-Synthesis accordingly. The at-risk
+# register entry (infrastructure/policy/at-risk-mcps.yml :: austrian-financial-
+# regulation-mcp, recovery.stage=pending) documents the licensing blockers.
+
+schema_version: "1.0"
+mcp_name: "Austrian Financial Regulation MCP"
+category: "regulation"
+jurisdiction: "Austria"
+
+current_state:
+  source_kind: "seed_stub"
+  origin: "scripts/seed-sample.ts (Ansvar-curated representative provisions)"
+  publisher_at_runtime: "ansvar-systems"
+  license_at_runtime: "Ansvar-Synthesis"
+  blockers:
+    - "fma.gv.at Cloudflare-gated — managed-challenge mode blocks all automated requests (HTTP 403 on /impressum/ and deep paths)"
+    - "scripts/ingest-fma.ts (PR #26 restoration) cannot run against the live source"
+
+# Live upstream (planned, blocked):
+planned_sources:
+  - name: "FMA (Finanzmarktaufsicht)"
+    authority: "Austrian Financial Market Authority (Aufsichtsbehörde under FMABG)"
+    official_url: "https://www.fma.gv.at"
+    retrieval_method: "AUTOMATED"   # restored in PR #26 but Cloudflare-blocked
+    retrieval_script: "scripts/ingest-fma.ts"
+    format:
+      - "HTML"
+    authentication: "none (HTTP)"
+    license:
+      spdx_ordinances: "LicenseRef-AT-UrhG-§7-no-copyright"
+      spdx_explainers: "LicenseRef-AT-IWG-publicsector"
+      summary: >-
+        FMA Verordnungen / ordinance-like Rundschreiben fall under UrhG §7
+        (Gesetze, Verordnungen, amtliche Erlässe — no copyright). FAQs and
+        explainer pages are §1 works covered by Austrian IWG (BGBl I Nr.
+        76/2023). 2026-05-16 TDM signal check: robots.txt only disallows
+        /wp-content/plugins/dw-fma/print.php + csvexport.php (no AI/TDM
+        block, no Noai). /.well-known/tdmrep.json 404. /.well-known/ai.txt
+        404. CDSM Art. 4 / §42h UrhG TDM exception applies on its face.
+        BLOCKER: Cloudflare managed-challenge mode on /impressum/ and deep
+        paths returns HTTP 403 to every realistic UA — Tier-4 ingestion
+        risk. Plan a browser-rendering pipeline or coordinate with FMA for
+        an API/datafeed.
+    legal_basis:
+      - "Austrian UrhG §7 — ordinances/Verordnungen exempt from copyright"
+      - "Austrian IWG (BGBl I Nr. 76/2023) — public-task body re-use default for FMA explainers"
+      - "CDSM Art. 4 / §42h UrhG TDM exception — no machine-readable reservation as of 2026-05-16"
+    verification:
+      registry_status: "under_review"
+      registry_entry: "infrastructure/policy/source-authority-registry.yml (host: www.fma.gv.at)"
+      at_risk_entry: "infrastructure/policy/at-risk-mcps.yml (repo_name: austrian-financial-regulation-mcp)"
+      blocker: "cloudflare-gated-ingestion-path"
+      last_verified_at: "2026-05-16"
+      verified_by: "claude-austrian-licensing-audit-2026-05-16"
+
+  - name: "OeNB (Oesterreichische Nationalbank)"
+    authority: "Austrian central bank (Hochwertige Datensätze under EU 2023/138 implementing acts)"
+    official_url: "https://www.oenb.at"
+    retrieval_method: "AUTOMATED"   # planned, not yet implemented
+    retrieval_script: "TBD"
+    format:
+      - "HTML"
+    authentication: "none"
+    license:
+      spdx: "LicenseRef-OeNB-Copyright-Reserved"
+      summary: >-
+        OeNB does not issue laws/ordinances so UrhG §7 doesn't apply — all content
+        is §1-protected works. Footer carries explicit "Copyright © 2024
+        Oesterreichische Nationalbank" reservation — even though IWG arguably
+        overrides for public-task statistical content (HVD under 2023/138), the
+        on-site notice creates risk. Recommend reaching out for re-use clearance
+        before live ingestion. 2026-05-16: robots.txt not served at root (CMS 404
+        with Magnolia HTML body — needs re-probe at canonical path). No
+        machine-readable TDM reservation but the explicit footer copyright is a
+        Layer-3 warning sign.
+    legal_basis:
+      - "Austrian IWG (BGBl I Nr. 76/2023) — public-task statistical body, HVDs under 2023/138"
+      - "ON-SITE CLAUSE: explicit `Copyright © 2024 OeNB` footer — Layer-3 reservation"
+    verification:
+      registry_status: "under_review"
+      registry_entry: "infrastructure/policy/source-authority-registry.yml (host: www.oenb.at)"
+      blocker: "explicit-copyright-reservation-on-footer; coordinate with OeNB before ingest"
+      last_verified_at: "2026-05-16"
+      verified_by: "claude-austrian-licensing-audit-2026-05-16"
+
+# Source-attribution contract enforced at response time:
+#   Per-item _citation matches current_state (publisher=ansvar-systems, license=
+#   Ansvar-Synthesis) because the MCP serves stub data, not real FMA/OeNB content.
+#   This is honest under the Source Attribution Standard — declaring "from FMA" on
+#   Ansvar-curated samples would itself be a compliance lie. When FMA Cloudflare
+#   blocker is resolved AND OeNB re-use clearance lands, SOURCE_ATTRIBUTION flips
+#   per planned_sources above.
