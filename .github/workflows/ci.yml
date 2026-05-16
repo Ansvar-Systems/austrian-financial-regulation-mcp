@@ -2,8 +2,20 @@ name: CI
 on:
   push:
     branches: [main, dev]
+    paths-ignore:
+      - 'README.md'
+      - 'docs/**'
+      - '*.md'
   pull_request:
     branches: [main, dev]
+    paths-ignore:
+      - 'README.md'
+      - 'docs/**'
+      - '*.md'
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-and-test:
@@ -11,6 +23,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
 
       - uses: actions/setup-node@v4
         with:
@@ -18,6 +32,37 @@ jobs:
           cache: 'npm'
 
       - run: npm ci
+
+      - name: Detect expensive-change scope
+        id: changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base="${{ github.event.pull_request.base.sha }}"
+            git fetch --no-tags --depth=1 origin "$base"
+            changed="$(git diff --name-only "$base" HEAD)"
+          elif [ -n "${{ github.event.before }}" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+            before="${{ github.event.before }}"
+            git fetch --no-tags --depth=1 origin "$before" || true
+            changed="$(git diff --name-only "$before" HEAD || git diff --name-only HEAD~1 HEAD || true)"
+          else
+            changed="$(git diff --name-only HEAD~1 HEAD || true)"
+          fi
+
+          printf '%s\n' "$changed"
+
+          if printf '%s\n' "$changed" | grep -Eq '^(data/|sources\.ya?ml|coverage\.json|COVERAGE\.md|scripts/(ingest|build|premium-ingestion)|src/(db|data|ingest|schema)/|src/.*(db|data|ingest|schema)|package(-lock)?\.json|tsconfig\.json)'; then
+            echo "db_changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "db_changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if printf '%s\n' "$changed" | grep -Eq '^(package(-lock)?\.json)$'; then
+            echo "deps_changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "deps_changed=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Build
         run: npm run build
@@ -28,7 +73,11 @@ jobs:
       - name: Build database
         run: |
           if jq -e '.scripts["build:db"]' package.json >/dev/null 2>&1; then
-            npm run build:db
+            if [ "${{ steps.changes.outputs.db_changed }}" = "true" ]; then
+              npm run build:db
+            else
+              echo "No data/ingestion/schema change detected — skipping build:db"
+            fi
           else
             echo "build:db script not present — skipping (native-curated MCP without DB build step)"
           fi
@@ -88,19 +137,29 @@ jobs:
       - name: Coverage consistency
         run: |
           if jq -e '.scripts["coverage:verify"]' package.json >/dev/null 2>&1; then
-            # coverage:verify typically needs a built DB; gate on DB existence
-            # rather than just script presence (auto-ingested MCPs may have the
-            # script but no DB in CI because build:db skipped or wasn't defined).
+            # coverage:verify needs BOTH a built DB AND coverage.json to do
+            # anything meaningful. Gate on:
+            #   * DB exists and is >1024 bytes (release-pattern MCPs ship a
+            #     0-byte stub; auto-ingested MCPs may not produce a DB in CI
+            #     when the change set didn't trigger build:db).
+            #   * coverage.json exists (the `coverage:update` script produces
+            #     it; we don't run that in CI, so an MCP that doesn't commit
+            #     a coverage snapshot has nothing to verify against).
             DB_PATH=$(jq -r '.scripts["build:db"] // empty' package.json | grep -oE 'data/[a-zA-Z0-9_-]+\.db' | head -1)
             DB_PATH=${DB_PATH:-data/database.db}
-            if [ -f "$DB_PATH" ]; then
+            if [ -f "$DB_PATH" ] && [ "$(wc -c < "$DB_PATH")" -gt 1024 ] && [ -f coverage.json ]; then
               npm run coverage:verify
             else
-              echo "coverage:verify present but no DB at $DB_PATH — skipping (build:db did not produce one)"
+              echo "coverage:verify present but no usable DB+coverage.json pair — skipping (DB at $DB_PATH and/or coverage.json missing)"
             fi
           else
             echo "coverage:verify script not present — skipping"
           fi
 
       - name: Audit dependencies
-        run: npm audit --audit-level=high || true
+        run: |
+          if [ "${{ steps.changes.outputs.deps_changed }}" = "true" ]; then
+            npm audit --audit-level=high || true
+          else
+            echo "package files unchanged — skipping npm audit (Dependabot/GHAS handle drift)"
+          fi
