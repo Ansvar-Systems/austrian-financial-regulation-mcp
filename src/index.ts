@@ -27,7 +27,7 @@ import {
   searchEnforcement,
   checkProvisionCurrency,
 } from "./db.js";
-import { buildCitation } from './citation.js';
+import { buildCitation, buildItemAttribution } from './citation.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -219,7 +219,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           status: parsed.status,
           limit: parsed.limit,
         });
-        return textContent({ results, count: results.length });
+        // Source Attribution Standard: per-item _citation on every served item.
+        const resultsWithCitation = results.map((r) => {
+          const row = r as unknown as Record<string, unknown>;
+          return {
+            ...row,
+            _citation: buildItemAttribution(
+              row["url"] != null ? String(row["url"]) : (row["source_url"] != null ? String(row["source_url"]) : undefined),
+            ),
+          };
+        });
+        return textContent({ results: resultsWithCitation, count: resultsWithCitation.length });
       }
 
       case "at_fin_get_regulation": {
@@ -245,7 +255,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case "at_fin_list_sourcebooks": {
         const sourcebooks = listSourcebooks();
-        return textContent({ sourcebooks, count: sourcebooks.length });
+        // Source Attribution Standard: per-item _citation on every served item.
+        const sourcebooksWithCitation = sourcebooks.map((s) => {
+          const row = s as unknown as Record<string, unknown>;
+          return {
+            ...row,
+            _citation: buildItemAttribution(
+              row["url"] != null ? String(row["url"]) : undefined,
+            ),
+          };
+        });
+        return textContent({ sourcebooks: sourcebooksWithCitation, count: sourcebooksWithCitation.length });
       }
 
       case "at_fin_search_enforcement": {
@@ -255,7 +275,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           action_type: parsed.action_type,
           limit: parsed.limit,
         });
-        return textContent({ results, count: results.length });
+        // Source Attribution Standard: per-item _citation on every served item.
+        const resultsWithCitation = results.map((r) => {
+          const row = r as unknown as Record<string, unknown>;
+          return {
+            ...row,
+            _citation: buildItemAttribution(
+              row["url"] != null ? String(row["url"]) : (row["source_url"] != null ? String(row["source_url"]) : undefined),
+            ),
+          };
+        });
+        return textContent({ results: resultsWithCitation, count: resultsWithCitation.length });
       }
 
       case "at_fin_check_currency": {
